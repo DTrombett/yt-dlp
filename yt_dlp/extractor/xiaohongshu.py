@@ -13,6 +13,13 @@ class XiaoHongShuIE(InfoExtractor):
     _VALID_URL = r'https?://www\.xiaohongshu\.com/(?:explore|discovery/item)/(?P<id>[\da-f]+)'
     IE_DESC = '小红书'
     _TESTS = [{
+        'url': 'https://www.xiaohongshu.com/explore/6786df34000000001901d188',
+        'md5': '',
+        'info_dict': {
+            'id': '6786df34000000001901d188',
+            'ext': 'mp4',
+        },
+    }, {
         'url': 'https://www.xiaohongshu.com/explore/6411cf99000000001300b6d9',
         'md5': '2a87a77ddbedcaeeda8d7eae61b61228',
         'info_dict': {
@@ -46,27 +53,33 @@ class XiaoHongShuIE(InfoExtractor):
             r'window\.__INITIAL_STATE__\s*=', webpage, 'initial state', display_id, transform_source=js_to_json)
 
         note_info = traverse_obj(initial_state, ('note', 'noteDetailMap', display_id, 'note'))
-        video_info = traverse_obj(note_info, ('video', 'media', 'stream', ('h264', 'av1', 'h265'), ...))
+        streams = traverse_obj(note_info, ('video', 'media', 'stream', ..., ...))
 
         formats = []
-        for info in video_info:
-            format_info = traverse_obj(info, {
+        for stream in streams:
+            format_info = traverse_obj(stream, {
                 'fps': ('fps', {int_or_none}),
                 'width': ('width', {int_or_none}),
                 'height': ('height', {int_or_none}),
                 'vcodec': ('videoCodec', {str}),
                 'acodec': ('audioCodec', {str}),
-                'abr': ('audioBitrate', {int_or_none}),
-                'vbr': ('videoBitrate', {int_or_none}),
+                'abr': ('audioBitrate', {int_or_none(scale=1000)}),
+                'vbr': ('videoBitrate', {int_or_none(scale=1000)}),
                 'audio_channels': ('audioChannels', {int_or_none}),
-                'tbr': ('avgBitrate', {int_or_none}),
+                'tbr': ('avgBitrate', {int_or_none(scale=1000)}),
                 'format': ('qualityType', {str}),
                 'filesize': ('size', {int_or_none}),
                 'duration': ('duration', {float_or_none(scale=1000)}),
             })
 
-            formats.extend(traverse_obj(info, (('mediaUrl', ('backupUrls', ...)), {
-                lambda u: url_or_none(u) and {'url': u, **format_info}})))
+            formats.append({
+                'url': stream['masterUrl'],
+                'format_id': str(stream['streamType']),
+                'quality': 0,
+                **format_info,
+            })
+            for u in stream.get('backupUrls') or []:
+                formats.append({'format_id': f"{stream['streamType']}-backup", 'url': u, **format_info})
 
         thumbnails = []
         for image_info in traverse_obj(note_info, ('imageList', ...)):
@@ -84,11 +97,13 @@ class XiaoHongShuIE(InfoExtractor):
             'id': display_id,
             'formats': formats,
             'thumbnails': thumbnails,
-            'title': self._html_search_meta(['og:title'], webpage, default=None),
             **traverse_obj(note_info, {
                 'title': ('title', {str}),
                 'description': ('desc', {str}),
                 'tags': ('tagList', ..., 'name', {str}),
                 'uploader_id': ('user', 'userId', {str}),
+                'timestamp': ('time', {int_or_none}),
+                'modified_timestamp': ('lastUpdateTime', {int_or_none}),
+                'channel': ('user', 'nickname', {str}),
             }),
         }
