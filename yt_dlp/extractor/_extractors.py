@@ -508,6 +508,7 @@ from .deuxm import (
 )
 from .dfb import DFBIE
 from .dhm import DHMIE
+from .difm import DiFmIE
 from .digitalconcerthall import DigitalConcertHallIE
 from .digiteka import DigitekaIE
 from .digiview import DigiviewIE
