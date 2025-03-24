@@ -66,8 +66,11 @@ class DiFmIE(InfoExtractor):
         }))
 
         for f in data['formats']:
-            f['vcodec'] = 'none'
-            f['acodec'] = 'aac'
+            f.setdefault('vcodec', 'none')
+            f.setdefault('acodec', 'aac')
+            f.setdefault('ext', 'm4a')
+            if f.get('filesize') and data.get('duration'):
+                f['tbr'] = f['filesize'] / data['duration'] / 125
         return {
             'id': str(details['episode']['id']),
             'display_id': traverse_obj(details, ('episode', 'slug')),
